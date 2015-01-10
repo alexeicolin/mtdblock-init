@@ -1,0 +1,118 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          mtdblock
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Create mtdblock device nodes
+# Description:       Udev automatically creates /dev/mtd device nodes but not
+#                    /dev/mtdblock devices, despite MTD_BLOCK support being
+#                    compiled into the kenrel. This script creates an mtdblock
+#                    node for each mtd node.
+### END INIT INFO
+
+# Author: Alexei Colin <ac@alexeicolin.com>
+
+# Do NOT "set -e"
+
+# PATH should only include /usr/* if it runs after the mountnfs.sh script
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+DESC="Create mtdblock device nodes"
+NAME=
+DAEMON=
+DAEMON_ARGS=
+PIDFILE=
+SCRIPTNAME=/etc/init.d/mtdblock
+
+# Read configuration variable file if it is present
+[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+
+# Load the VERBOSE setting and other rcS variables
+. /lib/init/vars.sh
+
+# Define LSB log_* functions.
+# Depend on lsb-base (>= 3.2-14) to ensure that this file is present
+# and status_of_proc is working.
+. /lib/lsb/init-functions
+
+do_start()
+{
+	if stat -t /dev/mtdblock* > /dev/null 2>&1
+	then
+		return 1
+	fi
+
+        majornum=$(grep mtdblock /proc/devices | grep -E -o '[0-9]+')
+        for mtddev in /dev/mtd*
+        do
+		if echo $mtddev | grep -q 'ro$'
+		then
+			continue
+		fi
+                idx=$(echo $mtddev | grep -E -o '[0-9]+')
+                mknod /dev/mtdblock$idx b $majornum $idx
+        done
+}
+
+do_stop()
+{
+	if ! stat -t /dev/mtdblock* > /dev/null 2>&1
+	then
+		return 1
+	fi
+        rm /dev/mtdblock*
+}
+
+case "$1" in
+  start)
+	[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
+	do_start
+	case "$?" in
+		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	esac
+	;;
+  stop)
+	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
+	do_stop
+	case "$?" in
+		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	esac
+	;;
+  status)
+        if stat -t /dev/mtdblock* > /dev/null 2>&1
+	then
+		echo "Device nodes exist"
+		exit 0
+	else
+		echo "Device nodes do not exist"
+		exit 1
+	fi
+	;;
+  restart|force-reload)
+	log_daemon_msg "Restarting $DESC" "$NAME"
+	do_stop
+	case "$?" in
+	  0|1)
+		do_start
+		case "$?" in
+			0) log_end_msg 0 ;;
+			1) log_end_msg 1 ;; # Old process is still running
+			*) log_end_msg 1 ;; # Failed to start
+		esac
+		;;
+	  *)
+		# Failed to stop
+		log_end_msg 1
+		;;
+	esac
+	;;
+  *)
+	echo "Usage: $SCRIPTNAME {start|stop|status|restart}" >&2
+	exit 3
+	;;
+esac
+
+:
