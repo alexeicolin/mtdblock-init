@@ -3,3 +3,8 @@ Init script for creating `/dev/mtdblock` device node for each existing
 
 On Javelin S4, the udev in Debian Wheezy does not create the `mtdblock` device
 nodes but only the `mtd` nodes, despite the kernel having `mtdblock` built in.
+
+To install:
+
+    # ln -s mtdblock /etc/init.d/mtdblock
+    # update-rc.d mtdblock defaults
